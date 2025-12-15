@@ -129,7 +129,7 @@ def domains_to_grid(dom):
     return new_grid
 
 # ==========================================
-# 2. VISUAL SOLVER (AI)
+# 2. VISUAL SOLVER (AI GENERATOR)
 # ==========================================
 def solve_grid_visual(start_grid):
     if not is_consistent_assignment(start_grid):
@@ -527,6 +527,48 @@ def check_menu_click(pos):
         if start_y+gap*2 <= my <= start_y+gap*2+btn_h: return (55, "Hard")
     return None
 
+def check_auto_restart():
+    global message
+    # Cek apakah board sudah penuh dan valid
+    if is_consistent_assignment(grid) and all(grid[r][c] != 0 for r in range(9) for c in range(9)):
+        
+        # 1. Gambar board terakhir agar player melihat langkah terakhirnya
+        draw_board()
+        
+        # 2. Gambar Overlay "COMPLETED"
+        final_score = get_current_score()
+        
+        # Dimensi kotak pesan
+        ow, oh = 400, 200
+        ox = (WINDOW_W - ow) // 2
+        oy = (WINDOW_H - oh) // 2
+        
+        # Background shadow & kotak
+        draw_shadow_rect(screen, (ox, oy, ow, oh), radius=15, offset=8)
+        draw_rounded_rect(screen, C_BOARD_BG, (ox, oy, ow, oh), radius=15)
+        # Border hijau tanda sukses
+        pygame.draw.rect(screen, C_TEXT_SUCCESS, (ox, oy, ow, oh), 4, border_radius=15)
+        
+        # Teks Judul
+        txt_title = FONT_TITLE.render("COMPLETED!", True, C_TEXT_SUCCESS)
+        screen.blit(txt_title, (ox + (ow - txt_title.get_width())//2, oy + 40))
+        
+        # Teks Score
+        txt_score = FONT_SUBTITLE.render(f"Final Score: {final_score}", True, C_GRID_THICK)
+        screen.blit(txt_score, (ox + (ow - txt_score.get_width())//2, oy + 110))
+
+        # Teks Info Restart
+        txt_info = FONT_SCORE_LBL.render("New game starting in 3s...", True, C_TEXT_LIGHT)
+        screen.blit(txt_info, (ox + (ow - txt_info.get_width())//2, oy + 160))
+        
+        pygame.display.flip()
+        
+        # 3. Tunggu 3 detik agar player bisa melihat pesan
+        pygame.time.delay(3000)
+        
+        # 4. Mulai game baru
+        start_game(current_removals, difficulty_name)
+
 def provide_hint():
     global message, hint_penalty_count
     if game_state != "PLAYING": return
@@ -539,6 +581,10 @@ def provide_hint():
     grid[r][c] = sol[r][c]
     hint_penalty_count += 1
     message = "Hint used."
+    
+    # Cek jika hint menyelesaikan game
+    if all(grid[r][c] != 0 for r in range(9) for c in range(9)):
+          check_auto_restart()
 
 def clear_action():
     global grid, message
@@ -560,6 +606,17 @@ def solve_action():
     solver_generator = solve_grid_visual(grid)
     game_state = "VISUAL_SOLVE"
 
+def flash_wrong_cell(r, c):
+    x = MARGIN_LEFT + c*CELL; y = MARGIN_TOP + r*CELL
+    rect = (x,y,CELL,CELL)
+    for _ in range(2):
+        pygame.draw.rect(screen, C_TEXT_ERROR, rect)
+        pygame.display.update(rect)
+        pygame.time.delay(100)
+        draw_board()
+        pygame.display.update(rect)
+        pygame.time.delay(50)
+
 def handle_keydown(event):
     global selected, mistake_penalty_count, message, game_state, end_time
     if game_state != "PLAYING": return
@@ -577,12 +634,12 @@ def handle_keydown(event):
         if is_consistent_assignment(temp_grid):
             grid[sr][sc] = num
             message = ""
-            if all(grid[r][c] != 0 for r in range(9) for c in range(9)):
-                game_state = "FINISHED"
-                end_time = time.time()
+            # --- CEK APAKAH GAME SELESAI ---
+            check_auto_restart()
         else:
             mistake_penalty_count += 1
             message = "Wrong move!"
+            flash_wrong_cell(sr, sc)
     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
         if not given[sr][sc]: grid[sr][sc] = 0
 
@@ -601,7 +658,7 @@ def main():
             # --- VISUAL SOLVE LOGIC ---
             if game_state == "VISUAL_SOLVE":
                 # FIXED DELAY 10ms (Tanpa kontrol user)
-                pygame.time.delay(500) 
+                pygame.time.delay(400) 
                 
                 try:
                     status = next(solver_generator)
@@ -654,9 +711,10 @@ def main():
                 draw_menu()
             else:
                 draw_board()
-                if game_state == "FINISHED" and not solved_by_solver:
-                    surf = FONT_STATUS.render("COMPLETED!", True, C_TEXT_SUCCESS)
-                    screen.blit(surf, (WINDOW_W//2 - surf.get_width()//2, WINDOW_H - 50))
+                # Overlay Finished untuk Auto-Solver (AI) saja
+                # Kalau Manual Play, overlaynya dihandle oleh check_auto_restart()
+                if game_state == "FINISHED" and solved_by_solver:
+                    pass 
             
             pygame.display.flip()
             
