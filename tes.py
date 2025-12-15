@@ -13,9 +13,8 @@ try:
 except:
     pass
 
-# ==========================================
-# 1. LOGIKA CSP & SOLVER (CORE)
-# ==========================================
+
+# --- LOGIKA CSP & SOLVER (CORE) ---
 ALL_CELLS = [(r, c) for r in range(9) for c in range(9)]
 
 def peers_of(cell):
@@ -84,7 +83,7 @@ def initial_domains(grid):
                         changed = True
     return domains
 
-def forward_check(domains, cell, val):
+def forward_check(domains, cell, val): # efek domino terhadap domain tetangga ketika suatu sel diisi
     dom = copy.deepcopy(domains)
     dom[cell] = {val}
     stack = [cell]
@@ -103,14 +102,14 @@ def forward_check(domains, cell, val):
                         stack.append(p)
     return dom
 
-def select_unassigned_var(dom):
+def select_unassigned_var(dom): # memilih sel dengan domain terkecil
     unassigned = [(len(dom[cell]), cell) for cell in ALL_CELLS if len(dom[cell]) > 1]
     if not unassigned:
         return None
     unassigned.sort()
     return unassigned[0][1]
 
-def order_values(dom, var):
+def order_values(dom, var): # memilih domain mana yang harus dicoba duluan
     vals = list(dom[var])
     def conflicts_count(v):
         cnt = 0
@@ -128,9 +127,7 @@ def domains_to_grid(dom):
             new_grid[r][c] = next(iter(d))
     return new_grid
 
-# ==========================================
-# 2. VISUAL SOLVER (AI GENERATOR)
-# ==========================================
+# --- 2. VISUAL SOLVER ---
 def solve_grid_visual(start_grid):
     if not is_consistent_assignment(start_grid):
         yield "UNSOLVABLE"
@@ -238,9 +235,7 @@ def generate_puzzle(removals=40):
             removed += 1
     return puzzle, solved
 
-# ==========================================
-# 3. UI & PYGAME SETUP
-# ==========================================
+# --- UI & PYGAME SETUP ---
 pygame.init()
 FPS = 60
 
